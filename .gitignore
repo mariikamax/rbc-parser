@@ -1,0 +1,7 @@
+temp_*.html
+temp_*.xml
+desktop.ini
+Thumbs.db
+.idea/
+*.log
+result.json
