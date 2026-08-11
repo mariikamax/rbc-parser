@@ -14,10 +14,12 @@ HEADERS = {
     'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
 }
 
+
 def fetch_url(url, timeout=15):
     response = requests.get(url, headers=HEADERS, timeout=timeout)
-    response.encoding = 'utf-8'
+    response.raise_for_status()
     return response.text
+
 
 def parse_news(html):
     news_list = []
@@ -57,6 +59,7 @@ def parse_currencies(xml_text):
     for valute in root.findall('Valute'):
         code_elem = valute.find('CharCode')
         value_elem = valute.find('Value')
+        nominal_elem = valute.find('Nominal')
 
         if code_elem is None or value_elem is None:
             continue
@@ -66,6 +69,12 @@ def parse_currencies(xml_text):
             continue
 
         value = value_elem.text.replace(',', '.')
+
+        if nominal_elem is not None:
+            nominal = int(nominal_elem.text)
+            if nominal > 1:
+                value = str(float(value) / nominal)
+
         currencies[code] = value
 
     return currencies
@@ -73,21 +82,35 @@ def parse_currencies(xml_text):
 
 def main():
     print("Loading news from chr.rbc.ru")
-    html = fetch_url(NEWS_URL)
-    if len(html) < 1000:
-        print("Error")
+    try:
+        html = fetch_url(NEWS_URL)
+    except requests.RequestException as e:
+        print(f"Error loading news: {e}")
         return
+
+    if len(html) < 1000:
+        print("Error: HTML too short")
+        return
+
     print(f"  Loaded {len(html)} bytes\n")
 
     news = parse_news(html)
+
     print("Loading currency rates from cbr.ru")
-    xml_text = fetch_url(CBR_URL)
-    if len(xml_text) < 100:
-        print("Error")
+    try:
+        xml_text = fetch_url(CBR_URL)
+    except requests.RequestException as e:
+        print(f"Error loading currencies: {e}")
         return
+
+    if len(xml_text) < 100:
+        print("Error: XML too short")
+        return
+
     print(f"  Loaded {len(xml_text)} bytes")
 
     currencies = parse_currencies(xml_text)
+
     result = {
         "currencies": currencies,
         "news": news
@@ -97,11 +120,11 @@ def main():
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     print(f"Saved to {OUTPUT_FILE}")
-    print("CURRENCIES:")
+    print("\nCURRENCIES:")
     for code, value in sorted(currencies.items()):
         print(f"  {code:<6} {value:>10} RUB")
 
-    print(f"\nNews:")
+    print(f"\nNEWS:")
     for i, title in enumerate(news, 1):
         print(f"{i:>2}. {title}")
 
