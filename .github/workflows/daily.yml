@@ -21,7 +21,12 @@ jobs:
       - name: Установить зависимости
         run: pip install -r requirements.txt
 
-      - name: Запустить парсер
+      - name: Проверить ручной запуск
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "GitHub Actions работает. Письма не отправляются."
+
+      - name: Запустить парсер по расписанию
+        if: github.event_name == 'schedule'
         env:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
